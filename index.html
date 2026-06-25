@@ -1,1 +1,1999 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>板書計画メーカー Ver2.2</title>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
+<style>
+
+body{
+  margin:0;
+  padding-top:120px;
+
+  background:#f0f0f0;
+  font-family:"Yu Gothic",sans-serif;
+  text-align:center;
+}
+
+.toolbar{
+  position:fixed;
+
+  top:0;
+  left:50%;
+  transform:translateX(-50%);
+
+  z-index:9998;
+
+  width:min(1600px, 98vw);
+
+  padding:6px;
+
+  background:white;
+  border:1px solid #ccc;
+
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:6px;
+}
+
+details{
+  border:1px solid #ccc;
+  border-radius:6px;
+  background:#fafafa;
+  padding:4px 8px;
+}
+
+summary{font-weight:bold;cursor:pointer;}
+
+button,select,input{
+  font-size:14px;
+  margin:3px;
+  padding:4px 8px;
+}
+
+#board{
+  width:1200px;
+  height:400px;
+  margin:20px auto;
+  background:#0b5d3b;
+  border:15px solid #6b4b2a;
+  position:relative;
+  overflow:hidden;
+}
+
+.boardWrapper{
+  width:1200px;
+  height:400px;
+  margin:20px auto;
+  overflow:visible;
+}
+
+.item{
+  position:absolute;
+  box-sizing:border-box;
+}
+
+.selected{
+  outline:2px dashed yellow;
+}
+
+.handle{
+  width:12px;
+  height:12px;
+  background:yellow;
+  position:absolute;
+  right:-6px;
+  bottom:-6px;
+  cursor:nwse-resize;
+  display:none;
+  z-index:20;
+}
+
+.moveHandle{
+  width:14px;
+  height:14px;
+  background:deepskyblue;
+  position:absolute;
+  left:-7px;
+  top:-7px;
+  border-radius:50%;
+  cursor:move;
+  display:none;
+  z-index:20;
+}
+
+.selected .handle,
+.selected .moveHandle,
+.label.selectedLabel .handle,
+.label.selectedLabel .moveHandle{
+  display:block;
+}
+
+.textItem{
+  color:white;
+  font-size:28px;
+  font-weight:bold;
+  min-width:10px;
+  min-height:10px;
+  padding:8px;
+}
+
+.textContent{
+  width:100%;
+  min-height:100%;
+
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+
+  outline:none;
+  white-space:pre-wrap;
+  cursor:text;
+  user-select:text;
+}
+
+
+.vertical{
+  writing-mode:vertical-rl;
+  text-orientation:upright;
+}
+
+.inlineSquare{
+  border:2px solid currentColor;
+  padding:1px 5px;
+  margin:0 2px;
+}
+
+.inlineCircle{
+  border:2px solid currentColor;
+  border-radius:999px;
+  padding:1px 7px;
+  margin:0 2px;
+}
+
+.underline{
+  text-decoration-line:underline;
+  text-decoration-thickness:4px;
+  text-underline-offset:6px;
+  text-decoration-color:var(--underline-color, white);
+}
+
+.boxSquare{
+  border:3px solid var(--box-color, white);
+}
+
+.boxCircle{
+  border:3px solid var(--box-color, white);
+  border-radius:999px;
+}
+
+.speech{
+  border:3px solid var(--speech-color, white);
+  border-radius:20px;
+}
+
+.frame{
+  border:4px solid white;
+  color:white;
+  cursor:move;
+}
+
+.frameText{
+  position:absolute;
+
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+
+  color:inherit;
+  font-size:26px;
+  font-weight:bold;
+  outline:none;
+  white-space:pre-wrap;
+  cursor:text;
+}
+
+.label{
+  position:absolute;
+  border:4px solid white;
+  background:#0b5d3b;
+  color:inherit;
+  min-width:10px;
+  min-height:10px;
+  display:flex;
+  box-sizing:border-box;
+  cursor:default;
+}
+
+.labelContent{
+  outline:none;
+  width:100%;
+  min-height:100%;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+  align-items:flex-start;
+  white-space:pre-wrap;
+  cursor:text;
+}
+
+.cornerLabel{
+  border-radius:999px;
+}
+
+.imageItem{
+  cursor:move;
+}
+
+.imageItem img{
+  width:100%;
+  display:block;
+  user-select:none;
+  pointer-events:none;
+}
+
+svg{
+  position:absolute;
+  left:0;
+  top:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+}
+
+.arrowGroup{
+  pointer-events:auto;
+  cursor:pointer;
+}
+
+.arrowLine{
+  fill:none;
+  stroke:white;
+  stroke-width:4;
+  pointer-events:stroke;
+  cursor:move;
+}
+
+.arrowPoint{
+  fill:white;
+  stroke:#333;
+  stroke-width:1;
+  cursor:pointer;
+}
+
+.arrowSelected .arrowPoint{
+  stroke:yellow;
+  stroke-width:3;
+}
+
+.activePoint{
+  fill:red !important;
+}
+
+.contextMenu{
+  position:absolute;
+  background:white;
+  border:1px solid #999;
+  box-shadow:2px 2px 6px rgba(0,0,0,0.3);
+  z-index:9999;
+  display:none;
+  text-align:left;
+}
+
+.contextMenu button{
+  display:block;
+  width:120px;
+  border:none;
+  background:white;
+  padding:8px;
+  text-align:left;
+  cursor:pointer;
+}
+
+.contextMenu button:hover{
+  background:#eee;
+}
+
+.alignLeft .textContent,
+.alignLeft .labelContent,
+.alignLeft .frameText{
+  align-items:flex-start;
+  text-align:left;
+}
+
+.alignCenter .textContent,
+.alignCenter .labelContent,
+.alignCenter .frameText{
+  align-items:center;
+  text-align:center;
+}
+
+.alignRight .textContent,
+.alignRight .labelContent,
+.alignRight .frameText{
+  align-items:flex-end;
+  text-align:right;
+}
+
+.valignTop .textContent,
+.valignTop .labelContent,
+.valignTop .frameText{
+  justify-content:flex-start;
+}
+
+.valignMiddle .textContent,
+.valignMiddle .labelContent,
+.valignMiddle .frameText{
+  justify-content:center;
+}
+
+.valignBottom .textContent,
+.valignBottom .frameText,
+.valignBottom .labelContent{
+  justify-content:flex-end;
+}
+
+#notePage{
+  width:900px;
+  min-height:400px;
+  margin:30px auto;
+  padding:30px;
+  background:white;
+  border:1px solid #ccc;
+  text-align:left;
+}
+
+#notePage h2{
+  text-align:center;
+}
+
+.kokugoNote{
+  display:grid;
+  grid-template-columns:repeat(var(--note-cols, 10),24px);
+  grid-auto-rows:42px;
+
+  width:max-content;
+  margin:auto;
+
+  border-top:2px solid #333;
+  border-left:2px solid #333;
+}
+
+.kokugoCell{
+  width:42px;
+  height:42px;
+
+  border-right:2px solid #333;
+  border-bottom:2px solid #333;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  font-size:24px;
+  font-weight:bold;
+}
+
+.noteGrid{
+  background-image:
+  linear-gradient(#ccc 1px, transparent 1px),
+  linear-gradient(90deg,#ccc 1px, transparent 1px);
+
+  background-size:25px 25px;
+
+  width:800px;
+  height:800px;
+  margin:auto;
+}
+
+.notePlain{
+  width:800px;
+  height:800px;
+  border:1px solid #ccc;
+  margin:auto;
+}
+
+.kokugoVertical{
+  direction:rtl;
+}
+
+.kokugoVertical .kokugoCell{
+  writing-mode:vertical-rl;
+  text-orientation:upright;
+}
+
+#noteSpread{
+  display:flex;
+  justify-content:center;
+  gap:20px;
+}
+
+.notePageB5{
+  width:420px;
+  min-height:594px;
+  padding:20px;
+  background:#fffdf5;
+  border:1px solid #aaa;
+  box-shadow:0 2px 8px rgba(0,0,0,0.2);
+}
+
+.notePageB5 h3{
+  text-align:center;
+  margin:0 0 10px;
+}
+
+.kokugoNote{
+  display:grid;
+  grid-template-columns:repeat(var(--note-cols, 10),24px);
+  grid-auto-rows:24px;
+  width:max-content;
+  margin:auto;
+  border-top:1px solid #333;
+  border-left:1px solid #333;
+}
+
+.kokugoNote .kokugoCell{
+  width:24px;
+  height:24px;
+  border-right:1px solid #333;
+  border-bottom:1px solid #333;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:16px;
+  font-weight:bold;
+}
+
+.kokugo15Design{
+  background:#000;
+  padding-top:28px;
+  position:relative;
+}
+
+.kokugo15Design::before{
+  content:"　　月　　　日　　　曜日（　　　）";
+  position:absolute;
+  top:0;
+  right:0;
+  color:#5fdcff;
+  font-size:16px;
+  font-weight:bold;
+}
+
+.kokugo15Design{
+  display:grid;
+  grid-template-columns:repeat(10,34px);
+  grid-template-rows:repeat(15,46px);
+  width:max-content;
+  margin:auto;
+  border-top:2px solid #5fdcff;
+  border-left:2px solid #5fdcff;
+}
+
+.kokugo15Design .kokugoCell{
+  width:34px;
+  height:46px;
+  border-right:2px solid #5fdcff;
+  border-bottom:1px solid #5fdcff;
+  color:#5fdcff;
+  font-size:20px;
+  background:#000;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>板書計画メーカー Ver2.2</h1>
+
+<div class="toolbar">
+
+<details open>
+<summary>追加</summary>
+<button onclick="addText()">文字</button>
+<button onclick="addFrame('normal')">普通枠</button>
+<button onclick="addFrame('header')">見出し枠</button>
+<button onclick="addFrame('corner')">丸ラベル枠</button>
+<button onclick="addArrow()">矢印</button>
+<input type="file" accept="image/*" onchange="addImage(event)">
+</details>
+
+<details>
+<summary>文字</summary>
+<select onchange="setTextColor(this.value)">
+<option value="">文字色</option>
+<option value="white">白</option>
+<option value="yellow">黄</option>
+<option value="red">赤</option>
+<option value="skyblue">青</option>
+</select>
+
+文字サイズ
+
+<input
+  type="number"
+  id="fontSizeInput"
+  value="28"
+  min="1"
+  max="300"
+  style="width:70px;"
+  onchange="setFontSizeInput()"
+>
+
+<button onclick="toggleBold()">太字</button>
+<button onclick="toggleVertical()">縦書き</button>
+
+<hr>
+
+<button onclick="setTextAlign('left')">左</button>
+<button onclick="setTextAlign('center')">中央</button>
+<button onclick="setTextAlign('right')">右</button>
+
+<br>
+
+<button onclick="setVerticalAlign('top')">上</button>
+<button onclick="setVerticalAlign('middle')">中央</button>
+<button onclick="setVerticalAlign('bottom')">下</button>
+</details>
+
+
+<details>
+<summary>文章内</summary>
+<button onclick="wrapInline('square')">選択文字□</button>
+<button onclick="wrapInline('circle')">選択文字○</button>
+<button onclick="clearInline()">解除</button>
+</details>
+
+<details>
+<summary>装飾色</summary>
+<select onchange="setUnderlineColor(this.value)">
+<option value="">下線色</option>
+<option value="white">白</option>
+<option value="yellow">黄</option>
+<option value="red">赤</option>
+<option value="skyblue">青</option>
+</select>
+
+<select onchange="setBoxColor(this.value)">
+<option value="">囲み色</option>
+<option value="white">白</option>
+<option value="yellow">黄</option>
+<option value="red">赤</option>
+<option value="skyblue">青</option>
+</select>
+
+<select onchange="setSpeechColor(this.value)">
+<option value="">吹き出し色</option>
+<option value="white">白</option>
+<option value="yellow">黄</option>
+<option value="red">赤</option>
+<option value="skyblue">青</option>
+</select>
+</details>
+
+<details>
+<summary>装飾</summary>
+<button onclick="toggleUnderline()">下線</button>
+<button onclick="toggleSpeech()">吹き出し</button>
+<button onclick="setBox('square')">□囲み</button>
+<button onclick="setBox('circle')">○囲み</button>
+<button onclick="setBox('none')">囲みなし</button>
+</details>
+
+<details>
+<summary>枠・矢印</summary>
+<select onchange="setFrameColor(this.value)">
+<option value="">枠色</option>
+<option value="white">白</option>
+<option value="yellow">黄</option>
+<option value="red">赤</option>
+<option value="skyblue">青</option>
+</select>
+
+<select onchange="setArrowColor(this.value)">
+<option value="">矢印色</option>
+<option value="white">白</option>
+<option value="yellow">黄</option>
+<option value="red">赤</option>
+<option value="skyblue">青</option>
+</select>
+
+<button onclick="addArrowPoint()">曲げ点＋</button>
+<button onclick="deleteArrowPoint()">点削除</button>
+</details>
+
+<details>
+<summary>操作</summary>
+
+黒板倍率
+<input
+  type="range"
+  min="50"
+  max="200"
+  value="100"
+  oninput="changeBoardScale(this.value)"
+>
+<span id="boardScaleView">100</span>%
+<br>
+
+<button onclick="undo()">戻る</button>
+
+<button onclick="groupObjects()">
+グループ化
+</button>
+
+<button onclick="ungroupObjects()">
+グループ解除
+</button>
+<button onclick="deleteSelected()">削除</button>
+<button onclick="saveTemp()">一時保存</button>
+<button onclick="loadTemp()">読み込み</button>
+<button onclick="exportImage()">画像出力</button>
+<button onclick="makeNote()">ノート反映</button>
+</details>
+
+</div>
+
+<p>青い丸＝移動 ／ 黄色い四角＝サイズ変更 ／ Ctrl+Zで戻る</p>
+
+<div class="boardWrapper" id="boardWrapper">
+<div id="board">
+  <svg id="svgLayer">
+    <defs>
+      <marker id="arrowWhite" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L9,3 z" fill="white"></path>
+      </marker>
+      <marker id="arrowYellow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L9,3 z" fill="yellow"></path>
+      </marker>
+      <marker id="arrowRed" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L9,3 z" fill="red"></path>
+      </marker>
+      <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L9,3 z" fill="skyblue"></path>
+      </marker>
+    </defs>
+ </svg>
+</div>
+</div>
+
+<div id="notePage">
+<select id="noteType">
+  <option value="15">15マス国語</option>
+  <option value="18">18マス国語</option>
+  <option value="20">20マス国語</option>
+  <option value="grid">方眼</option>
+  <option value="plain">白紙</option>
+</select>
+
+<button onclick="makeNote()">
+ノート反映
+</button>
+  <h2>ノート</h2>
+ <div id="noteSpread">
+  <div class="notePageB5">
+    <h3>左ページ</h3>
+    <div id="kokugoNoteLeft" class="kokugoNote"></div>
+  </div>
+
+  <div class="notePageB5">
+    <h3>右ページ</h3>
+    <div id="kokugoNoteRight" class="kokugoNote"></div>
+  </div>
+</div>
+</div>
+
+<div id="contextMenu" class="contextMenu">
+  <button onclick="copySelected()">コピー</button>
+  <button onclick="pasteSelected()">貼り付け</button>
+<button onclick="duplicateSelected()">複製</button>
+<button onclick="toggleVerticalFromMenu()">縦書き/横書き</button>
+  <button onclick="bringToFront()">最前面へ</button>
+  <button onclick="sendToBack()">最背面へ</button>
+  <button onclick="deleteFromMenu()">削除</button>
+</div>
+
+<script>
+const board = document.getElementById("board");
+let svgLayer = document.getElementById("svgLayer");
+
+
+function saveHistory(){
+  history.push(board.innerHTML);
+  if(history.length > 50) history.shift();
+}
+
+let selected = null;
+let selectedArrow = null;
+let selectedPoint = null;
+let selectedLabel = null;
+let selectedFrameText = null;
+
+let multiSelected = [];
+let copiedObject = null;
+
+let pasteX = 100;
+let pasteY = 100;
+
+let history = [];
+function undo(){
+  if(history.length === 0) return;
+  board.innerHTML = history.pop();
+  svgLayer = document.getElementById("svgLayer");
+  selected = null;
+  selectedArrow = null;
+  selectedPoint = null;
+  selectedLabel = null;
+  rebindAll();
+}
+
+document.addEventListener("keydown", e=>{
+
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="z"){
+    e.preventDefault();
+    undo();
+    return;
+  }
+
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="d" && !isEditing()){
+    e.preventDefault();
+    duplicateSelected();
+    return;
+  }
+  if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key) && !isEditing()){
+    const target = selectedLabel || selected;
+
+    if(!target) return;
+
+    e.preventDefault();
+    saveHistory();
+
+    const step = e.shiftKey ? 10 : 1;
+
+    let left = target.offsetLeft;
+    let top = target.offsetTop;
+
+    if(e.key === "ArrowUp") top -= step;
+    if(e.key === "ArrowDown") top += step;
+    if(e.key === "ArrowLeft") left -= step;
+    if(e.key === "ArrowRight") left += step;
+
+    target.style.left = left + "px";
+    target.style.top = top + "px";
+
+    return;
+  }
+
+  if(e.key==="Delete" && !isEditing()){
+    saveHistory();
+    deleteSelected();
+  }
+});
+
+function isEditing(){
+  const a = document.activeElement;
+  return a && (a.isContentEditable || a.tagName==="INPUT" || a.tagName==="TEXTAREA");
+}
+
+board.addEventListener("click", e=>{
+  if(e.target === board || e.target === svgLayer){
+    clearSelection();
+  }
+});
+
+board.addEventListener("dblclick", e=>{
+  if(e.target === board) addText(e.offsetX, e.offsetY);
+});
+
+function clearSelection(){
+  document.querySelectorAll(".selected").forEach(el=>el.classList.remove("selected"));
+  document.querySelectorAll(".selectedLabel").forEach(el=>el.classList.remove("selectedLabel"));
+  document.querySelectorAll(".arrowSelected").forEach(el=>el.classList.remove("arrowSelected"));
+  document.querySelectorAll(".activePoint").forEach(el=>el.classList.remove("activePoint"));
+  selected = null;
+selectedArrow = null;
+selectedPoint = null;
+selectedLabel = null;
+selectedFrameText = null;
+}
+
+function selectItem(el){
+
+  if(event && event.ctrlKey){
+
+    if(multiSelected.includes(el)){
+
+      multiSelected =
+        multiSelected.filter(x=>x!==el);
+
+      el.classList.remove("selected");
+
+    }else{
+
+      multiSelected.push(el);
+
+      el.classList.add("selected");
+    }
+
+    return;
+  }
+
+  clearSelection();
+
+  selected = el;
+
+  el.classList.add("selected");
+}
+
+function selectLabel(label){
+  clearSelection();
+  selectedLabel = label;
+  label.classList.add("selectedLabel");
+}
+
+/* 文字 */
+function addText(x=120,y=80){
+  saveHistory();
+  clearSelection();
+
+  const box = document.createElement("div");
+  box.className = "item textItem ";
+  box.style.left = x + "px";
+  box.style.top = y + "px";
+  box.style.width = "260px";
+  box.style.minHeight = "70px";
+  box.style.setProperty("--underline-color","white");
+  box.style.setProperty("--box-color","white");
+  box.style.setProperty("--speech-color","white");
+
+  const moveHandle = document.createElement("div");
+  moveHandle.className = "moveHandle";
+
+  const content = document.createElement("div");
+  content.className = "textContent";
+  content.contentEditable = "true";
+  content.innerHTML = "";
+
+  const handle = document.createElement("div");
+  handle.className = "handle";
+
+  box.appendChild(moveHandle);
+  box.appendChild(content);
+  box.appendChild(handle);
+  board.appendChild(box);
+
+  bindText(box);
+  selectItem(box);
+  content.focus();
+}
+
+function bindText(box){
+  const content = box.querySelector(".textContent");
+  const handle = box.querySelector(".handle");
+  const moveHandle = box.querySelector(".moveHandle");
+
+  box.addEventListener("click", e=>{
+    e.stopPropagation();
+    selectItem(box);
+  });
+
+  bindMoveHandle(box, moveHandle);
+  makeResizable(box, handle);
+
+  content.addEventListener("focus", ()=>{
+    selectItem(box);
+  });
+}
+
+/* 枠 */
+function addFrame(type){
+  saveHistory();
+  clearSelection();
+
+  const frame = document.createElement("div");
+  frame.className = "item frame";
+  frame.dataset.type = type;
+  frame.style.left = "250px";
+  frame.style.top = "100px";
+  frame.style.width = "300px";
+  frame.style.height = "180px";
+  frame.style.color = "white";
+  frame.style.borderColor = "white";
+
+  const moveHandle = document.createElement("div");
+  moveHandle.className = "moveHandle";
+
+  const inner = document.createElement("div");
+  inner.className = "frameText";
+  inner.contentEditable = "true";
+  inner.innerHTML = "";
+  inner.style.left = "20px";
+  inner.style.top = "35px";
+  inner.style.width = "250px";
+  inner.style.minHeight = "100px";
+  frame.appendChild(moveHandle);
+  frame.appendChild(inner);
+
+  if(type === "header"){
+    const label = createLabel(false);
+    label.style.left = "40px";
+    label.style.top = "-26px";
+    label.style.width = "130px";
+    label.style.minHeight = "45px";
+    frame.appendChild(label);
+  }
+
+  if(type === "corner"){
+    const label = createLabel(true);
+    label.style.left = "240px";
+    label.style.top = "-32px";
+    label.style.width = "90px";
+    label.style.minHeight = "60px";
+    frame.appendChild(label);
+  }
+
+  const handle = document.createElement("div");
+  handle.className = "handle";
+  frame.appendChild(handle);
+
+  board.appendChild(frame);
+  bindFrame(frame);
+  selectItem(frame);
+}
+
+function createLabel(isCorner){
+  const label = document.createElement("div");
+  label.className = isCorner ? "label cornerLabel alignCenter" : "label ";
+  label.style.borderColor = "white";
+
+  const moveHandle = document.createElement("div");
+  moveHandle.className = "moveHandle";
+
+  const content = document.createElement("div");
+  content.className = "labelContent";
+  content.contentEditable = "true";
+  content.innerHTML = "";
+
+  const handle = document.createElement("div");
+  handle.className = "handle";
+
+  label.appendChild(moveHandle);
+  label.appendChild(content);
+  label.appendChild(handle);
+
+  return label;
+}
+
+function bindFrame(frame){
+  const handle = frame.querySelector(":scope > .handle");
+  const moveHandle = frame.querySelector(":scope > .moveHandle");
+
+  frame.addEventListener("click", e=>{
+    e.stopPropagation();
+    selectItem(frame);
+  });
+
+  bindMoveHandle(frame, moveHandle);
+  makeResizable(frame, handle);
+
+  frame.querySelectorAll(".frameText").forEach(t=>{
+   t.addEventListener("click", e=>{
+  e.stopPropagation();
+
+  clearSelection();
+
+  selectedFrameText = t;
+
+  t.classList.add("selected");
+});
+
+    t.addEventListener("dblclick", e=>{
+      e.stopPropagation();
+      t.focus();
+    });
+  });
+
+  frame.querySelectorAll(".label").forEach(label=>{
+    bindLabel(label);
+  });
+}
+
+function bindLabel(label){
+  const content = label.querySelector(".labelContent");
+  const handle = label.querySelector(".handle");
+  const moveHandle = label.querySelector(".moveHandle");
+
+  label.addEventListener("click", e=>{
+    e.stopPropagation();
+    selectLabel(label);
+  });
+
+  content.addEventListener("focus", ()=>{
+    selectLabel(label);
+  });
+
+  bindMoveHandle(label, moveHandle);
+  makeResizable(label, handle);
+}
+
+/* 画像 */
+function addImage(event){
+  const file = event.target.files[0];
+  if(!file) return;
+
+  saveHistory();
+
+  const reader = new FileReader();
+  reader.onload = e=>{
+    const box = document.createElement("div");
+    box.className = "item imageItem";
+    box.style.left = "100px";
+    box.style.top = "100px";
+    box.style.width = "220px";
+
+    const moveHandle = document.createElement("div");
+    moveHandle.className = "moveHandle";
+
+    const img = document.createElement("img");
+    img.src = e.target.result;
+
+    const handle = document.createElement("div");
+    handle.className = "handle";
+
+    box.appendChild(moveHandle);
+    box.appendChild(img);
+    box.appendChild(handle);
+    board.appendChild(box);
+
+    bindImage(box);
+    selectItem(box);
+  };
+  reader.readAsDataURL(file);
+  event.target.value = "";
+}
+
+function bindImage(box){
+  const handle = box.querySelector(".handle");
+  const moveHandle = box.querySelector(".moveHandle");
+
+  box.addEventListener("click", e=>{
+    e.stopPropagation();
+    selectItem(box);
+  });
+
+  bindMoveHandle(box, moveHandle);
+  makeResizable(box, handle, true);
+}
+
+/* 移動・サイズ */
+function bindMoveHandle(el, moveHandle){
+  if(!moveHandle) return;
+
+  moveHandle.addEventListener("mousedown", e=>{
+    e.stopPropagation();
+    e.preventDefault();
+    saveHistory();
+
+    const sx = e.clientX;
+    const sy = e.clientY;
+    const sl = el.offsetLeft;
+    const st = el.offsetTop;
+
+    function move(e){
+      el.style.left = sl + (e.clientX - sx) + "px";
+      el.style.top = st + (e.clientY - sy) + "px";
+    }
+
+    function stop(){
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", stop);
+    }
+
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", stop);
+  });
+}
+
+function makeResizable(el, handle, keepRatio=false){
+  if(!handle) return;
+
+  handle.addEventListener("mousedown", e=>{
+    e.stopPropagation();
+    e.preventDefault();
+    saveHistory();
+
+    const sx = e.clientX;
+    const sy = e.clientY;
+    const sw = el.offsetWidth;
+    const sh = el.offsetHeight;
+
+    function move(e){
+      const w = Math.max(10, sw + (e.clientX - sx));
+      el.style.width = w + "px";
+
+      if(!keepRatio){
+        const h = Math.max(10, sh + (e.clientY - sy));
+        el.style.height = h + "px";
+        el.style.minHeight = h + "px";
+      }
+
+      if(el.classList.contains("frame")){
+        resizeFrameTextArea(el);
+      }
+    }
+
+    function stop(){
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", stop);
+    }
+
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", stop);
+  });
+}
+
+function resizeFrameTextArea(frame){
+  const inner = frame.querySelector(":scope > .frameText");
+  if(!inner) return;
+
+  inner.style.left = "20px";
+  inner.style.top = "35px";
+  inner.style.width = Math.max(50, frame.offsetWidth - 40) + "px";
+  inner.style.minHeight = Math.max(40, frame.offsetHeight - 60) + "px";
+}
+
+/* 矢印 */
+function addArrow(){
+  saveHistory();
+  clearSelection();
+
+  const g = document.createElementNS("http://www.w3.org/2000/svg","g");
+  g.classList.add("arrowGroup");
+
+  const path = document.createElementNS("http://www.w3.org/2000/svg","path");
+  path.classList.add("arrowLine");
+  path.setAttribute("marker-end","url(#arrowWhite)");
+
+  g.points = [
+    {x:400,y:180},
+    {x:550,y:180},
+    {x:550,y:280},
+    {x:750,y:280}
+  ];
+
+  g.appendChild(path);
+  svgLayer.appendChild(g);
+
+  bindArrow(g);
+  updateArrow(g);
+  selectArrow(g);
+}
+
+function bindArrow(g){
+
+  g.addEventListener("click", e=>{
+    e.stopPropagation();
+    selectArrow(g);
+  });
+
+  if(g.dataset.points){
+    g.points = JSON.parse(g.dataset.points);
+  }
+
+  const line = g.querySelector(".arrowLine");
+
+  line.addEventListener("mousedown", e=>{
+    e.stopPropagation();
+    e.preventDefault();
+
+    saveHistory();
+    selectArrow(g);
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+
+    const startPoints = g.points.map(p=>({
+      x:p.x,
+      y:p.y
+    }));
+
+    function move(e){
+
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      g.points = startPoints.map(p=>({
+        x:p.x + dx,
+        y:p.y + dy
+      }));
+
+      updateArrow(g);
+    }
+
+    function stop(){
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", stop);
+    }
+
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", stop);
+  });
+
+  rebuildArrowPoints(g);
+}
+
+function selectArrow(g){
+  clearSelection();
+  selectedArrow = g;
+  g.classList.add("arrowSelected");
+}
+
+function rebuildArrowPoints(g){
+  g.querySelectorAll(".arrowPoint").forEach(p=>p.remove());
+
+  g.points.forEach((p,i)=>{
+    const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    c.classList.add("arrowPoint");
+    c.setAttribute("r",8);
+
+    c.addEventListener("click", e=>{
+      e.stopPropagation();
+      selectArrow(g);
+      selectedPoint = i;
+      updateArrow(g);
+    });
+
+    c.addEventListener("mousedown", e=>{
+      e.stopPropagation();
+      dragArrowPoint(e,g,i);
+    });
+
+    g.appendChild(c);
+  });
+}
+
+function updateArrow(g){
+  const path = g.querySelector(".arrowLine");
+  let d = `M ${g.points[0].x} ${g.points[0].y}`;
+
+  for(let i=1;i<g.points.length;i++){
+    d += ` L ${g.points[i].x} ${g.points[i].y}`;
+  }
+
+  path.setAttribute("d", d);
+  g.dataset.points = JSON.stringify(g.points);
+
+  g.querySelectorAll(".arrowPoint").forEach((c,i)=>{
+    c.setAttribute("cx", g.points[i].x);
+    c.setAttribute("cy", g.points[i].y);
+    c.classList.toggle("activePoint", selectedArrow===g && selectedPoint===i);
+  });
+}
+
+function dragArrowPoint(e,g,i){
+  saveHistory();
+  const rect = board.getBoundingClientRect();
+  selectArrow(g);
+  selectedPoint = i;
+
+  function move(e){
+    g.points[i].x = e.clientX - rect.left;
+    g.points[i].y = e.clientY - rect.top;
+    updateArrow(g);
+  }
+
+  function stop(){
+    document.removeEventListener("mousemove", move);
+    document.removeEventListener("mouseup", stop);
+  }
+
+  document.addEventListener("mousemove", move);
+  document.addEventListener("mouseup", stop);
+}
+
+function addArrowPoint(){
+  if(!selectedArrow) return alert("矢印を選択してください");
+  saveHistory();
+
+  const pts = selectedArrow.points;
+  let index = pts.length - 1;
+
+  if(selectedPoint !== null && selectedPoint < pts.length-1){
+    index = selectedPoint + 1;
+  }
+
+  const a = pts[index-1];
+  const b = pts[index];
+
+  pts.splice(index,0,{x:(a.x+b.x)/2,y:(a.y+b.y)/2});
+
+  selectedPoint = index;
+  rebuildArrowPoints(selectedArrow);
+  updateArrow(selectedArrow);
+}
+
+function deleteArrowPoint(){
+  if(!selectedArrow) return;
+  if(selectedPoint === null) return alert("削除する点を選択してください");
+  if(selectedArrow.points.length <= 2) return alert("最低2点必要です");
+
+  saveHistory();
+  selectedArrow.points.splice(selectedPoint,1);
+  selectedPoint = null;
+  rebuildArrowPoints(selectedArrow);
+  updateArrow(selectedArrow);
+}
+
+/* メニュー */
+function setTextColor(color){
+
+  if(!color) return;
+
+  saveHistory();
+
+  if(selectedFrameText){
+    selectedFrameText.style.color = color;
+    return;
+  }
+
+  if(selectedLabel){
+    selectedLabel.style.color = color;
+    return;
+  }
+
+  if(selected){
+    selected.style.color = color;
+  }
+}
+
+function toggleBold(){
+  const target = getTextTarget();
+  if(!target) return;
+  saveHistory();
+  target.style.fontWeight = target.style.fontWeight === "normal" ? "bold" : "normal";
+}
+
+function toggleVertical(){
+  const target = getTextTarget();
+  if(!target) return;
+  saveHistory();
+  target.classList.toggle("vertical");
+}
+
+function getTextTarget(){
+  return selectedFrameText || selectedLabel || selected;
+}
+
+function setTextAlign(type){
+  const target = getTextTarget();
+
+  if(!target){
+    alert("文字を選択してください");
+    return;
+  }
+
+  saveHistory();
+
+  target.classList.remove("alignLeft","alignCenter","alignRight");
+
+  if(type==="left") target.classList.add("alignLeft");
+  if(type==="center") target.classList.add("alignCenter");
+  if(type==="right") target.classList.add("alignRight");
+}
+
+function setVerticalAlign(type){
+  const target = getTextTarget();
+
+  if(!target){
+    alert("文字を選択してください");
+    return;
+  }
+
+  saveHistory();
+
+  target.classList.remove("valignTop","valignMiddle","valignBottom");
+
+  if(type==="top") target.classList.add("valignTop");
+  if(type==="middle") target.classList.add("valignMiddle");
+  if(type==="bottom") target.classList.add("valignBottom");
+}
+ 
+function wrapInline(type){
+  const sel = window.getSelection();
+  if(sel.rangeCount === 0) return alert("囲みたい文字を選択してください");
+
+  const range = sel.getRangeAt(0);
+  if(range.collapsed) return alert("囲みたい文字を選択してください");
+
+  saveHistory();
+
+  const span = document.createElement("span");
+  span.className = type === "square" ? "inlineSquare" : "inlineCircle";
+
+  try{
+    range.surroundContents(span);
+  }catch(e){
+    alert("短い文字だけ選択してください");
+  }
+
+  sel.removeAllRanges();
+}
+
+function clearInline(){
+  const sel = window.getSelection();
+  if(sel.rangeCount === 0) return;
+
+  let node = sel.anchorNode;
+  if(node.nodeType === 3) node = node.parentElement;
+
+  const target = node.closest(".inlineSquare,.inlineCircle");
+  if(!target) return;
+
+  saveHistory();
+  target.replaceWith(document.createTextNode(target.textContent));
+}
+
+function setUnderlineColor(color){
+  if(!selected) return;
+  saveHistory();
+  selected.style.setProperty("--underline-color",color);
+}
+
+function setBoxColor(color){
+  if(!selected) return;
+  saveHistory();
+  selected.style.setProperty("--box-color",color);
+}
+
+function setSpeechColor(color){
+  if(!selected) return;
+  saveHistory();
+  selected.style.setProperty("--speech-color",color);
+}
+
+function toggleUnderline(){
+  if(!selected) return;
+  saveHistory();
+  selected.classList.toggle("underline");
+}
+
+function toggleSpeech(){
+  if(!selected) return;
+  saveHistory();
+  selected.classList.toggle("speech");
+}
+
+function setBox(type){
+  if(!selected) return;
+  saveHistory();
+
+  selected.classList.remove("boxSquare","boxCircle");
+
+  if(type==="square") selected.classList.add("boxSquare");
+  if(type==="circle") selected.classList.add("boxCircle");
+}
+
+function setFrameColor(color){
+  if(!color) return;
+
+  saveHistory();
+
+  if(selectedLabel){
+    selectedLabel.style.borderColor = color;
+    return;
+  }
+
+  if(selected && selected.classList.contains("frame")){
+    selected.style.borderColor = color;
+    selected.querySelectorAll(".label").forEach(label=>{
+      label.style.borderColor = color;
+    });
+  }
+}
+
+function setArrowColor(color){
+  if(!selectedArrow) return;
+  saveHistory();
+
+  const path = selectedArrow.querySelector(".arrowLine");
+  path.style.stroke = color;
+  selectedArrow.querySelectorAll(".arrowPoint").forEach(p=>p.style.fill=color);
+
+  if(color==="white") path.setAttribute("marker-end","url(#arrowWhite)");
+  if(color==="yellow") path.setAttribute("marker-end","url(#arrowYellow)");
+  if(color==="red") path.setAttribute("marker-end","url(#arrowRed)");
+  if(color==="skyblue") path.setAttribute("marker-end","url(#arrowBlue)");
+}
+
+/* 保存 */
+function deleteSelected(){
+  if(selectedLabel){
+    selectedLabel.remove();
+    selectedLabel = null;
+    return;
+  }
+
+  if(selected){
+    selected.remove();
+    selected = null;
+    return;
+  }
+
+  if(selectedArrow){
+    selectedArrow.remove();
+    selectedArrow = null;
+    return;
+  }
+}
+
+function saveTemp(){
+  clearSelection();
+  localStorage.setItem("board_v2", board.innerHTML);
+  alert("一時保存しました");
+}
+
+function loadTemp(){
+  const data = localStorage.getItem("board_v2");
+  if(!data) return alert("保存データがありません");
+
+  saveHistory();
+  board.innerHTML = data;
+  svgLayer = document.getElementById("svgLayer");
+  rebindAll();
+}
+
+function rebindAll(){
+  board.querySelectorAll(".textItem").forEach(bindText);
+  board.querySelectorAll(".frame").forEach(bindFrame);
+  board.querySelectorAll(".imageItem").forEach(bindImage);
+  board.querySelectorAll(".arrowGroup").forEach(bindArrow);
+}
+
+function exportImage(){
+  clearSelection();
+  html2canvas(board,{backgroundColor:null,scale:2}).then(canvas=>{
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = "板書計画.png";
+    a.click();
+  });
+}
+
+function setFontSizeInput(){
+
+  const size =
+    document.getElementById("fontSizeInput").value;
+
+  saveHistory();
+
+  if(selectedFrameText){
+    selectedFrameText.style.fontSize =
+      size + "px";
+    return;
+  }
+
+  if(selectedLabel){
+    selectedLabel.style.fontSize =
+      size + "px";
+    return;
+  }
+
+  if(selected){
+    selected.style.fontSize =
+      size + "px";
+    return;
+  }
+
+  alert("文字を選択してください");
+}
+
+function changeBoardScale(value){
+
+  const scale = value / 100;
+
+  const wrapper =
+    document.getElementById("boardWrapper");
+
+  board.style.transform =
+    `scale(${scale})`;
+
+  board.style.transformOrigin =
+    "top left";
+
+  wrapper.style.width =
+    (1200 * scale) + "px";
+
+  wrapper.style.height =
+    (400 * scale) + "px";
+
+  document.getElementById(
+    "boardScaleView"
+  ).textContent = value;
+}
+
+function groupObjects(){
+
+  if(multiSelected.length < 2){
+    alert("2個以上選択してください");
+    return;
+  }
+
+  const group =
+    document.createElement("div");
+
+  group.className =
+    "item objectGroup";
+
+  group.style.left = "0px";
+  group.style.top = "0px";
+  group.style.position = "absolute";
+
+  board.appendChild(group);
+
+  multiSelected.forEach(obj=>{
+
+    group.appendChild(obj);
+
+  });
+
+  bindGroup(group);
+
+  clearSelection();
+
+  selectItem(group);
+}
+
+function bindGroup(group){
+
+  const moveHandle =
+    document.createElement("div");
+
+  moveHandle.className =
+    "moveHandle";
+
+  group.appendChild(moveHandle);
+
+  bindMoveHandle(group, moveHandle);
+}
+
+function ungroupObjects(){
+
+  if(!selected) return;
+
+  if(!selected.classList.contains(
+    "objectGroup"
+  )) return;
+
+  const group = selected;
+
+  [...group.children].forEach(el=>{
+
+    if(el.classList.contains("moveHandle"))
+      return;
+
+    board.appendChild(el);
+
+  });
+
+  group.remove();
+}
+
+function duplicateSelected(){
+
+  const target = selectedLabel || selected;
+
+  if(!target){
+    alert("複製するオブジェクトを選択してください");
+    return;
+  }
+
+  saveHistory();
+
+  const clone = target.cloneNode(true);
+
+  const left = parseInt(target.style.left || 0);
+  const top = parseInt(target.style.top || 0);
+
+ clone.style.left = (left + 30) + "px";
+clone.style.top = (top + 30) + "px";
+
+board.appendChild(clone);
+
+  rebindAll();
+
+  clearSelection();
+  selectItem(clone);
+}
+
+board.addEventListener("contextmenu", e=>{
+  e.preventDefault();
+
+const rect = board.getBoundingClientRect();
+
+pasteX = e.clientX - rect.left;
+pasteY = e.clientY - rect.top;
+
+  const label = e.target.closest(".label");
+  const item = e.target.closest(".item");
+  const arrow = e.target.closest(".arrowGroup");
+
+  if(label){
+    selectLabel(label);
+  }else if(item){
+    selectItem(item);
+  }else if(arrow){
+    selectArrow(arrow);
+  }
+
+  showContextMenu(e.pageX, e.pageY);
+});
+
+document.addEventListener("click", ()=>{
+  hideContextMenu();
+});
+
+function showContextMenu(x,y){
+  const menu = document.getElementById("contextMenu");
+  menu.style.left = x + "px";
+  menu.style.top = y + "px";
+  menu.style.display = "block";
+}
+
+function hideContextMenu(){
+  const menu = document.getElementById("contextMenu");
+  menu.style.display = "none";
+}
+
+function deleteFromMenu(){
+  saveHistory();
+  deleteSelected();
+  hideContextMenu();
+}
+
+function bringToFront(){
+  const target = selectedLabel || selected;
+
+  if(!target){
+    alert("前面にするものを選択してください");
+    return;
+  }
+
+  saveHistory();
+
+  if(selectedLabel){
+    selectedLabel.parentElement.appendChild(selectedLabel);
+  }else{
+    board.appendChild(target);
+  }
+
+  hideContextMenu();
+}
+
+function sendToBack(){
+  const target = selectedLabel || selected;
+
+  if(!target){
+    alert("背面にするものを選択してください");
+    return;
+  }
+
+  saveHistory();
+
+  if(selectedLabel){
+    selectedLabel.parentElement.insertBefore(
+      selectedLabel,
+      selectedLabel.parentElement.firstChild
+    );
+  }else{
+    board.insertBefore(target, board.firstChild);
+  }
+
+  hideContextMenu();
+}
+
+function copySelected(){
+
+  const target = selectedLabel || selected;
+
+  if(!target){
+    alert("コピーするものを選択してください");
+    return;
+  }
+
+  copiedObject = target.cloneNode(true);
+
+  hideContextMenu();
+}
+
+function pasteSelected(){
+
+  if(!copiedObject){
+    alert("コピーされたものがありません");
+    return;
+  }
+
+  saveHistory();
+
+  const clone = copiedObject.cloneNode(true);
+
+  const left =
+    parseInt(copiedObject.style.left || 0);
+
+  const top =
+    parseInt(copiedObject.style.top || 0);
+
+clone.style.left = pasteX + "px";
+clone.style.top = pasteY + "px";
+
+  board.appendChild(clone);
+
+  rebindAll();
+
+  clearSelection();
+  selectItem(clone);
+
+  hideContextMenu();
+}
+
+function toggleVerticalFromMenu(){
+
+  const target = selectedLabel || selected;
+
+  if(!target){
+    alert("文字を選択してください");
+    return;
+  }
+
+  saveHistory();
+
+  target.classList.toggle("vertical");
+
+  hideContextMenu();
+}
+
+  function makeNote(){
+
+ const noteLeft =
+  document.getElementById("kokugoNoteLeft");
+
+const noteRight =
+  document.getElementById("kokugoNoteRight");
+ 
+  const type =
+    document.getElementById("noteType").value;
+  
+  noteLeft.innerHTML = "";
+  noteRight.innerHTML = "";
+
+  noteLeft.className = "";
+  noteRight.className = "";
+
+  if(type==="15" ||
+   type==="18" ||
+   type==="20"){
+
+  noteLeft.classList.add(
+    "kokugoVertical"
+  );
+
+  noteRight.classList.add(
+    "kokugoVertical"
+  );
+if(type==="15"){
+  noteLeft.classList.add("kokugo15Design");
+  noteRight.classList.add("kokugo15Design");
+}
+
+}
+
+if(type==="plain"){
+
+  noteLeft.className =
+    "notePlain";
+
+  noteRight.className =
+    "notePlain";
+
+  return;
+}
+
+if(type==="grid"){
+
+  noteLeft.className =
+    "noteGrid";
+
+  noteRight.className =
+    "noteGrid";
+
+  return;
+}
+  
+  const texts = [];
+
+  board.querySelectorAll(
+    ".textContent,.frameText,.labelContent"
+  ).forEach(el=>{
+
+    const text = el.innerText.trim();
+
+    if(text){
+      texts.push(text);
+    }
+  });
+
+  const allText =
+    texts.join("");
+
+let rowCount = 15;
+let colCount = 10;
+
+let count =
+  rowCount * colCount;
+
+if(type==="18"){
+  masuCount = 18;
+  count = 324;
+}
+
+if(type==="20"){
+  masuCount = 20;
+  count = 400;
+}
+
+noteLeft.style.setProperty(
+  "--note-cols",
+  colCount
+);
+
+noteRight.style.setProperty(
+  "--note-cols",
+  colCount
+);
+
+for(let i=0;i<count*2;i++){
+
+    const cell =
+      document.createElement("div");
+
+    cell.className =
+      "kokugoCell";
+const rows = rowCount;
+const cols = colCount;
+ 
+
+
+const pageIndex =
+  i % count;
+
+const row =
+  pageIndex % rows;
+
+const col =
+  Math.floor(pageIndex / rows);
+
+const index =
+  row + col * rows;
+
+cell.textContent =
+  allText[index] || "";
+
+const pageCount =
+  count; 
+
+if(i < pageCount){
+  noteRight.appendChild(cell);
+}else{
+  noteLeft.appendChild(cell);
+}
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
